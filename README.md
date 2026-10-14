@@ -1,6 +1,15 @@
 # Reserve One
 
-An original institutional energy-market website inspired by the visual direction and subject matter of goif.site—not a copy or endorsement. It includes a live-data server adapter, energy equity terminal, focused market research, Supabase magic-link authentication, responsive layouts, and a Render deployment blueprint.
+An original institutional energy, policy, and multi-sector market platform inspired by the visual direction and subject matter of goif.site—not a copy or endorsement. It includes a live-data server adapter, multi-sector equity terminal (29 Oil & Energy stocks, 13 Trump-ecosystem & policy stocks, and 25 global sector leaders across Tech & AI, Financials & Crypto, Defense & Industrials, and Healthcare & Consumer), interactive instrument dossiers, custom ticker lookup, Supabase magic-link authentication, responsive layouts, and a Render deployment blueprint.
+
+## Market Universe (67 Equities)
+
+- **Oil & Energy (29):** Integrated Majors (`XOM`, `CVX`, `SHEL`, `TTE`, `BP`, `EQNR`, `PBR`, `CNQ`, `SU`), Exploration & Production (`COP`, `EOG`, `OXY`, `FANG`, `DVN`, `EQT`, `TPL`, `OVV`), Oilfield Services (`SLB`, `BKR`, `HAL`), Refining & Downstream (`MPC`, `VLO`, `PSX`), and Midstream, Pipelines & LNG (`ENB`, `WMB`, `EPD`, `ET`, `KMI`, `LNG`).
+- **Trump Stocks & Policy Desk (13):** Flagship & Trump Family Ventures (`DJT`, `ABTC`, `HUT`), Donald Trump Jr. & Eric Trump Advisory/Board Equities (`UMAC`, `DOMH`, `PSQH`), Campaign & Cloud Infrastructure Partners (`RUM`, `PHUN`, `NMAX`), and America-First Policy Beneficiaries (`GEO`, `CXW`, `MP`, `NUE`).
+- **Tech & AI (10):** `NVDA`, `AAPL`, `MSFT`, `AMZN`, `GOOGL`, `META`, `TSLA`, `AVGO`, `PLTR`, `INTC` (including mega-cap holdings disclosed in presidential financial filings).
+- **Financials & Crypto (6):** `BRK.B`, `JPM`, `V`, `GS`, `COIN`, `MSTR`.
+- **Defense, Nuclear & Industrials (5):** `GE`, `CAT`, `RTX`, `LMT`, `CCJ`.
+- **Healthcare & Consumer (4):** `LLY`, `WMT`, `UNH`, `COST`.
 
 ## Run locally
 
@@ -29,7 +38,7 @@ These workflows record and authorize requests, but they do not move money by the
 
 ## Market data
 
-The server supports Finnhub. Set `FINNHUB_API_KEY` in Render. API keys remain server-side. When absent or unavailable, resilient demo quotes are returned.
+The server supports Finnhub. Set `FINNHUB_API_KEY` in Render. API keys remain server-side with a 60-second quote cache. When absent or unavailable, resilient benchmark quotes are returned.
 
 ## Deploy on Render
 

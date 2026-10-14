@@ -6,12 +6,22 @@ const tabs = ['Overview','Funding','Withdrawals','Deposit address']
 const money = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'})
 
 export default function AdminConsole(){
-  const [session,setSession]=useState(null),[role,setRole]=useState(null),[tab,setTab]=useState('Overview'),[rows,setRows]=useState([]),[address,setAddress]=useState(''),[network,setNetwork]=useState('USDC — Solana'),[note,setNote]=useState(''),[message,setMessage]=useState('')
+  const [session,setSession]=useState(null),[role,setRole]=useState(null),[tab,setTab]=useState('Overview'),[rows,setRows]=useState([]),[address,setAddress]=useState(''),[network,setNetwork]=useState('USDC — Solana'),[note,setNote]=useState(''),[message,setMessage]=useState(''),[refreshKey,setRefreshKey]=useState(0)
   useEffect(()=>{if(!supabase)return;supabase.auth.getSession().then(async({data})=>{setSession(data.session);if(data.session){const {data:p}=await supabase.from('profiles').select('role').eq('id',data.session.user.id).single();setRole(p?.role||'user')}})},[])
-  useEffect(()=>{if(role!=='admin'||!supabase)return;load()},[tab,role])
-  async function load(){const table=tab==='Withdrawals'?'withdrawal_requests':'funding_requests';if(tab==='Funding'||tab==='Withdrawals'){const {data}=await supabase.from(table).select('*').order('created_at',{ascending:false});setRows(data||[])}if(tab==='Deposit address'){const {data}=await supabase.from('deposit_destinations').select('*').eq('active',true).maybeSingle();if(data){setAddress(data.address);setNetwork(data.network);setNote(data.instructions||'')}}}
-  async function decide(row,status){const table=tab==='Withdrawals'?'withdrawal_requests':'funding_requests';const {error}=await supabase.rpc('review_financial_request',{request_table:table,request_id:row.id,new_status:status,review_note:`${status} by operations`});setMessage(error?.message||`Request ${status}`);load()}
-  async function saveAddress(e){e.preventDefault();const {error}=await supabase.rpc('replace_deposit_destination',{new_network:network,new_address:address,new_instructions:note});setMessage(error?.message||'Deposit destination updated and audit logged');load()}
+  useEffect(()=>{
+    if(role!=='admin'||!supabase)return
+    const table=tab==='Withdrawals'?'withdrawal_requests':'funding_requests'
+    if(tab==='Funding'||tab==='Withdrawals'){
+      supabase.from(table).select('*').order('created_at',{ascending:false}).then(({data})=>setRows(data||[]))
+    }
+    if(tab==='Deposit address'){
+      supabase.from('deposit_destinations').select('*').eq('active',true).maybeSingle().then(({data})=>{
+        if(data){setAddress(data.address);setNetwork(data.network);setNote(data.instructions||'')}
+      })
+    }
+  },[tab,role,refreshKey])
+  async function decide(row,status){const table=tab==='Withdrawals'?'withdrawal_requests':'funding_requests';const {error}=await supabase.rpc('review_financial_request',{request_table:table,request_id:row.id,new_status:status,review_note:`${status} by operations`});setMessage(error?.message||`Request ${status}`);setRefreshKey(k=>k+1)}
+  async function saveAddress(e){e.preventDefault();const {error}=await supabase.rpc('replace_deposit_destination',{new_network:network,new_address:address,new_instructions:note});setMessage(error?.message||'Deposit destination updated and audit logged');setRefreshKey(k=>k+1)}
   if(!isSupabaseReady)return <Gate title="Admin console unavailable" text="Connect Supabase and run the included schema before using secure operations."/>
   if(!session)return <Gate title="Authentication required" text="Sign in from the main website with an authorized administrator account."/>
   if(role===null)return <Gate title="Checking authorization" text="Verifying your operations role…"/>

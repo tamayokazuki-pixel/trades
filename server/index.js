@@ -5,33 +5,83 @@ import helmet from 'helmet'
 import cors from 'cors'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { STOCKS, STOCK_BY_SYMBOL } from '../src/data/stocks.js'
 
 const app = express()
 const port = process.env.PORT || 3001
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const symbols = ['XOM', 'CVX', 'COP', 'OXY', 'SLB', 'SHEL']
-const fallback = {
-  XOM: { name: 'Exxon Mobil', price: 119.42, change: 0.86 }, CVX: { name: 'Chevron', price: 156.28, change: -0.34 },
-  COP: { name: 'ConocoPhillips', price: 103.67, change: 1.21 }, OXY: { name: 'Occidental', price: 46.91, change: 0.48 },
-  SLB: { name: 'SLB', price: 43.76, change: -0.17 }, SHEL: { name: 'Shell', price: 72.14, change: 0.65 }
-}
+const quoteCache = new Map()
+const CACHE_TTL_MS = 60_000
+
 app.use(helmet({ contentSecurityPolicy: false }))
 app.use(cors())
 app.use(compression())
 app.use(express.json())
 
 async function quote(symbol) {
-  const item = fallback[symbol] || { name: symbol, price: 100, change: 0 }
-  if (!process.env.FINNHUB_API_KEY) return { symbol, ...item, demo: true }
+  const item = STOCK_BY_SYMBOL[symbol] || {
+    symbol,
+    name: `${symbol} Equity`,
+    price: 100,
+    change: 0,
+    category: 'All Markets',
+    subsector: 'Listed Equity',
+    exchange: 'US Market',
+    marketCap: '—',
+    thesis: 'Live market instrument retrieved via the Reserve One institutional quote desk.'
+  }
+
+  if (!process.env.FINNHUB_API_KEY) {
+    return { ...item, symbol, demo: true }
+  }
+
+  const cached = quoteCache.get(symbol)
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    return cached.data
+  }
+
   try {
-    const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${process.env.FINNHUB_API_KEY}`)
+    const response = await fetch(
+      `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${process.env.FINNHUB_API_KEY}`
+    )
     if (!response.ok) throw new Error('Provider error')
     const q = await response.json()
-    return { symbol, name: item.name, price: q.c || item.price, change: q.dp ?? item.change, demo: false }
-  } catch { return { symbol, ...item, demo: true } }
+    const data = {
+      ...item,
+      symbol,
+      price: q.c || item.price,
+      change: q.dp ?? item.change,
+      demo: !q.c
+    }
+    quoteCache.set(symbol, { ts: Date.now(), data })
+    return data
+  } catch {
+    return { ...item, symbol, demo: true }
+  }
 }
-app.get('/api/health', (_, res) => res.json({ ok: true }))
-app.get('/api/market', async (_, res) => res.json(await Promise.all(symbols.map(quote))))
+
+app.get('/api/health', (_, res) => res.json({ ok: true, instruments: STOCKS.length }))
+
+app.get('/api/market', async (req, res) => {
+  const { category, q } = req.query
+  let list = STOCKS
+  if (category && category !== 'All Markets') {
+    list = list.filter(s => s.category === category)
+  }
+  if (q) {
+    const term = String(q).toLowerCase()
+    list = list.filter(
+      s =>
+        s.symbol.toLowerCase().includes(term) ||
+        s.name.toLowerCase().includes(term) ||
+        s.subsector.toLowerCase().includes(term) ||
+        (s.trumpLink && s.trumpLink.toLowerCase().includes(term))
+    )
+  }
+  const results = await Promise.all(list.map(item => quote(item.symbol)))
+  res.json(results)
+})
+
 app.get('/api/quote/:symbol', async (req, res) => {
   const symbol = req.params.symbol.toUpperCase().replace(/[^A-Z.-]/g, '').slice(0, 10)
   if (!symbol) return res.status(400).json({ error: 'Invalid symbol' })
